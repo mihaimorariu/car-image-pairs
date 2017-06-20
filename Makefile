@@ -13,5 +13,6 @@ ARGS += -std=c++11
 
 all:
 	g++ pairs.cpp -o pairs $(LIBS) $(ARGS)
+	g++ evaluate.cpp -o evaluate
 clean:
-	rm -f pairs
+	rm -f pairs evaluate
