@@ -1,0 +1,5 @@
+fast_threshold: 5
+rejection_threshold: 300
+similarity_threshold: 30
+visualize: true
+
