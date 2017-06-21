@@ -33,6 +33,14 @@ The result file (e.g. `result.txt`), containing the output of the program, conta
 
     The output of the program will be recorded in `result.txt`.
 
+5. Evaluate the algorithm. In the main directory, run:
+
+    `./src/evaluate.py data/result.txt data/gtruth.txt`
+
+    The script will print :
+
+     * The fraction of tests correctly marked as showing/not showing the same car.
+     * The fraction of tests where the correct car size was detected.
 
 ### Limitations ###
 
