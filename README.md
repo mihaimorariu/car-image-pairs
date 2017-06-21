@@ -1,4 +1,4 @@
-# Pairs #
+# Pairs Test Case #
 
 This repository contains my solution for the Pairs test case. Given two images, each showing a car, the program determined whether the same type/model is present in both of them. If so, it also provides information about which of the two images shows a large (zoomed-in) version of the car.
 
