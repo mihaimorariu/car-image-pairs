@@ -22,7 +22,7 @@ The result file (e.g. `result.txt`), containing the output of the program, conta
 1. Clone the repository. In the main directory, run `make`.
 2. Generate new (random) data. In the main directory, run:
 
-    `./src/generate_data.py img X data/data.txt data/gtruth.txt`
+    `./scripts/generate_data.py img X data/data.txt data/gtruth.txt`
 
     where `X` is the total number of generated tests, out of which half will contain images showing the same car and the other half will not.
 
@@ -35,7 +35,7 @@ The result file (e.g. `result.txt`), containing the output of the program, conta
 
 5. Evaluate the algorithm. In the main directory, run:
 
-    `./src/evaluate.py data/result.txt data/gtruth.txt`
+    `./scripts/evaluate.py data/result.txt data/gtruth.txt`
 
     The script will print :
 
