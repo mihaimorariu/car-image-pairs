@@ -16,6 +16,7 @@ if __name__ == "__main__":
 	data_file = sys.argv[3]
 	gt_file   = sys.argv[4]
 
+	# Construct a dictionary with car_id as key and a list with seq_ids as value
 	files = os.listdir(img_dir)
 	sequences = {}
 
@@ -29,14 +30,17 @@ if __name__ == "__main__":
 		else:
 			sequences[car_id] = [seq_id]
 
+	# Shuffle the data
 	keys = list(sequences.keys())
 	rnd.shuffle(keys)
 
+	# Make sure we have enough data to sample from
 	if len(keys) * 2 < samples:
 		raise Exception("Number of samples must be less or equal to {0}.".format(len(keys) * 2))
 
 	with open(data_file, "w") as df:
 		with open(gt_file, "w") as gf:
+			# Generate data corresponding to images showing the same car
 			for i in range(samples // 2):
 				car_id  = keys[i]
 				path1   = getImagePath(img_dir, car_id, sequences[car_id][0])
@@ -46,6 +50,7 @@ if __name__ == "__main__":
 				df.write("%s %s\n" % (path1, path2))
 				gf.write("%d %d\n" % (1, index))
 
+			# Generate data corresponding to images showing different cars
 			for i in range(samples // 2, samples):
 				car_id1 = keys[rnd.randint(0, len(keys) - 1)]
 				car_id2 = keys[rnd.randint(0, len(keys) - 1)]
