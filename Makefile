@@ -12,6 +12,6 @@ LIBS = -lopencv_xfeatures2d \
 ARGS += -std=c++11
 
 all:
-	g++ pairs.cpp -o pairs $(LIBS) $(ARGS)
+	g++ src/pairs.cpp -o pairs $(LIBS) $(ARGS)
 clean:
-	rm -f pairs
+	rm -rf pairs
