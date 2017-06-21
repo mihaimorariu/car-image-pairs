@@ -1,17 +1,16 @@
-#include <boost/program_options.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <yaml-cpp/yaml.h>
 
 #include <fstream>
-#include <limits>
 
-struct DetectionResult {
+struct CompareResult {
 	bool same_car;
 	int index_large;
 };
 
+/** \brief Loads an image from file and throws exception if it does not exist. */
 cv::Mat loadImage(std::string const & image_file) {
 	cv::Mat image = cv::imread(image_file);
 	if (image.empty()) {
@@ -21,6 +20,11 @@ cv::Mat loadImage(std::string const & image_file) {
 	return image;
 }
 
+/** \brief Visualizes keypoints.
+ *  \param [in] image       Image that the keypoints will be drawn onto.
+ *  \param [in] keypoints   Vector of keypoints.
+ *  \param [in] window_name Name of display window.
+ */
 void visualizeKeypoints(cv::Mat                   const & image,
                         std::vector<cv::KeyPoint> const & keypoints,
                         std::string               const & window_name)
@@ -35,6 +39,14 @@ void visualizeKeypoints(cv::Mat                   const & image,
 	cv::imshow(window_name, image_keypoints);
 }
 
+/** \brief Visualizes keypoint matches.
+ *  \param [in] image1      First image.
+ *  \param [in] image2      Second image.
+ *  \param [in] keypoints1  Vector with keypoints from the first image.
+ *  \param [in] keypoints2  Vector with keypoints from the second image.
+ *  \param [in] matches     Vector with matches.
+ *  \param [in] window_name Name of display window.
+ */
 void visualizeMatches(cv::Mat                   const & image1,
                       cv::Mat                   const & image2,
                       std::vector<cv::KeyPoint> const & keypoints1,
@@ -49,6 +61,16 @@ void visualizeMatches(cv::Mat                   const & image1,
 	cv::imshow(window_name, image_matches);
 }
 
+/** \brief Computes matches between keypoints with similar descriptors.
+ *  \param [in] image1     First image.
+ *  \param [in] image2     Second image.
+ *  \param [in] keypoints1 Vector with keypoints from the first image.
+ *  \param [in] keypoints2 Vector with keypoints from the second image.
+ *  \param [in] extractor  Points to descriptor extractor.
+ *  \param [in] matcher    Pointer to descriptor matcher.
+ *  \param [in] threshold  Threshold used for matching.
+ *  \return Vector with matches.
+ */
 std::vector<cv::DMatch> computeGoodMatches(cv::Mat                          const & image1,
                                            cv::Mat                          const & image2,
                                            std::vector<cv::KeyPoint>              & keypoints1,
@@ -58,48 +80,30 @@ std::vector<cv::DMatch> computeGoodMatches(cv::Mat                          cons
                                            int                              const threshold)
 {
 	cv::Mat descriptors1, descriptors2;
+
+	// Extract descriptors.
 	extractor->compute(image1, keypoints1, descriptors1);
 	extractor->compute(image2, keypoints2, descriptors2);
 
+	// Compute matches.
 	std::vector<cv::DMatch> matches;
 	matcher->match(descriptors1, descriptors2, matches);
 
+	// Threshold matches.
 	std::vector<cv::DMatch> good_matches;
 	for (int i = 0; i < descriptors1.rows; ++i) {
 		if (matches[i].distance < threshold) good_matches.push_back(matches[i]);
 	}
 
-	cv::Mat i1 = image1.clone();
-	cv::Mat i2 = image2.clone();
-	cv::Mat i3 = cv::Mat::zeros(image1.size(), CV_8UC3);
-
-	std::sort(good_matches.begin(), good_matches.end(),
-		[](cv::DMatch const & m1, cv::DMatch const & m2) { return m1.distance < m2.distance; });
-
-	std::vector<cv::Point2f> points1;
-	std::vector<cv::Point2f> points2;
-
-	for (int i = 0; i < good_matches.size(); ++i) {
-		points1.push_back(keypoints1[good_matches[i].queryIdx].pt);
-		points2.push_back(keypoints2[good_matches[i].trainIdx].pt);
-		//cv::circle(i1, keypoints1[good_matches[i].queryIdx].pt, 2, cv::Scalar(0, 255, 0), -1);
-		//cv::circle(i2, keypoints2[good_matches[i].trainIdx].pt, 2, cv::Scalar(0, 255, 0), -1);
-	}
-
-	//if (points1.size() && points2.size()) {
-	//cv::Mat H = cv::findHomography(points1, points2, cv::LMEDS);
-	//std::cout << H << std::endl;
-	//cv::warpPerspective(image1, i3, H, i2.size());
-	//}
-
-
-	//cv::imshow("i2", i2);
-	//cv::imshow("i3", i3);
-	//cv::waitKey(0);
-
 	return good_matches;
 }
 
+/** \brief Computes the index of the image showing the large car.
+ *  \param [in] keypoints1 Vector with keypoints from the first image.
+ *  \param [in] keypoints2 Vector with keypoints from the second image.
+ *  \param [in] matches    Vector with matches.
+ *  \return 0 if the first image shows the large car, 1 otherwise.
+ */
 int computeIndexLarge(std::vector<cv::KeyPoint> const & keypoints1,
                       std::vector<cv::KeyPoint> const & keypoints2,
                       std::vector<cv::DMatch>   const & matches)
@@ -107,6 +111,7 @@ int computeIndexLarge(std::vector<cv::KeyPoint> const & keypoints1,
 	cv::Mat points1(matches.size(), 2, CV_16U);
 	cv::Mat points2(matches.size(), 2, CV_16U);
 
+	// Store the keypoints in two matrices, as required by the PCA class.
 	for (std::size_t i = 0; i < matches.size(); ++i) {
 		points1.at<uint16_t>(i, 0) = keypoints1[matches[i].queryIdx].pt.x;
 		points1.at<uint16_t>(i, 1) = keypoints1[matches[i].queryIdx].pt.y;
@@ -114,24 +119,31 @@ int computeIndexLarge(std::vector<cv::KeyPoint> const & keypoints1,
 		points2.at<uint16_t>(i, 1) = keypoints2[matches[i].trainIdx].pt.y;
 	}
 
+	// Apply PCA and get the directions with the largest variation.
 	cv::PCA pca1(points1, cv::Mat(), CV_PCA_DATA_AS_ROW);
 	cv::PCA pca2(points2, cv::Mat(), CV_PCA_DATA_AS_ROW);
 
+	// Get the maximum eigen values for each of the two images.
 	double max1, max2;
 	cv::minMaxLoc(pca1.eigenvalues, 0, &max1);
 	cv::minMaxLoc(pca2.eigenvalues, 0, &max2);
 
-	std::cout << max1 << " " << max2 << std::endl;
-
 	return max1 > max2 ? 0 : 1;
 }
 
-DetectionResult compareImages(cv::Mat const & image1, cv::Mat const & image2, YAML::Node const & params) {
+/** \brief Compares two images to see if they contain the same car type/size.
+ *  \param [in] image1 First image.
+ *  \param [in] image2 Second image.
+ *  \param [in] params Algorithm parameters.
+ *  \return Result of the image comparison.
+ */
+CompareResult compareImages(cv::Mat const & image1, cv::Mat const & image2, YAML::Node const & params) {
 	int fast_threshold = params["fast_threshold"].as<int>(5);
 	bool visualize     = params["visualize"].as<bool>(true);
 
 	cv::Ptr<cv::FeatureDetector> detector = cv::FastFeatureDetector::create(fast_threshold);
 
+	// Detect keypoints in the two images.
 	std::vector<cv::KeyPoint> keypoints1, keypoints2;
 	detector->detect(image1, keypoints1);
 	detector->detect(image2, keypoints2);
@@ -139,72 +151,47 @@ DetectionResult compareImages(cv::Mat const & image1, cv::Mat const & image2, YA
 	std::cout << "Found " << keypoints1.size() << " keypoints in the first image. " << std::endl;
 	std::cout << "Found " << keypoints2.size() << " keypoints in the second image." << std::endl;
 
-	//if (visualize) {
-		//visualizeKeypoints(image1, keypoints1, "Keypoints1");
-		//visualizeKeypoints(image2, keypoints2, "Keypoints2");
-	//}
+	// Display keypoints, if 'visualize' is set to true.
+	if (visualize) {
+		visualizeKeypoints(image1, keypoints1, "Keypoints1");
+		visualizeKeypoints(image2, keypoints2, "Keypoints2");
+	}
 
+	// Create SIFT descriptors around the detected keypoints and match them with Flann.
 	cv::Ptr<cv::DescriptorExtractor> extractor = cv::xfeatures2d::SIFT::create();
 	cv::Ptr<cv::DescriptorMatcher> matcher     = cv::DescriptorMatcher::create("FlannBased");
 
+	// Compute matches corresponding to similar descriptors
 	int rejection_threshold = params["rejection_threshold"].as<int>(300);
 	std::vector<cv::DMatch> good_matches = computeGoodMatches(image1, image2, keypoints1, keypoints2,
 	                                                          extractor, matcher, rejection_threshold);
 	std::cout << "Found " << good_matches.size() << " point correspondences." << std::endl;
 
-	//if (visualize) {
-		//visualizeMatches(image1, image2, keypoints1, keypoints2, good_matches, "Matches");
-	//}
+	// Display matches, if 'visualize' is set to true.
+	if (visualize) {
+		visualizeMatches(image1, image2, keypoints1, keypoints2, good_matches, "Matches");
+	}
 
+	// If a certain number of matches was found, the same car is likely found in both images.
 	if (good_matches.size() > params["similarity_threshold"].as<int>(30)) {
+		// Compute the index of the image showing the larger car (0 for the first, 1 for the second).
 		int index_large = computeIndexLarge(keypoints1, keypoints2, good_matches);
-		//std::cout << 1 << " " << index_large << std::endl;
-		//cv::waitKey(0);
+		if (visualize) cv::waitKey(0);
+
 		return { true, index_large };
 	}
 
 	return { false, -1 };
 }
 
-
-bool parseArguments(std::string & params_file,
-                    std::string & data_file,
-                    std::string & result_file,
-                    int argc, char * argv[])
-{
-	namespace po = boost::program_options;
-
-	po::options_description desc("Pairs test case arguments");
-	desc.add_options()
-		("help,h",        "Display this message")
-		("params_file,p", po::value<std::string>(&params_file)->required(), "Path to the parameters file")
-		("data_file,d",   po::value<std::string>(&data_file)->required(),   "Path to the input data file")
-		("result_file,r", po::value<std::string>(&result_file)->required(), "Path to the output (result) file");
-
-	po::variables_map vm;
-
-	try {
-		po::store(po::parse_command_line(argc, argv, desc), vm);
-
-		if (vm.count("help")) {
-			std::cout << desc << std::endl;
-			return true;
-		}
-
-		po::notify(vm);
-	} catch (std::exception & e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return false;
+int main(int argc, char *argv[]) {
+	if (argc != 4) {
+		throw std::runtime_error("Usage " + std::string(argv[0]) + " params_file data_file result_file");
 	}
 
-	return true;
-}
-
-int main(int argc, char *argv[]) {
-	std::string params_file, data_file, result_file;
-
-	bool parse_result = parseArguments(params_file, data_file, result_file, argc, argv);
-	if (!parse_result) return -1;
+	std::string params_file(argv[1]);
+	std::string data_file(argv[2]);
+	std::string result_file(argv[3]);
 
 	YAML::Node params = YAML::LoadFile(params_file);
 	if (!params) {
@@ -224,12 +211,13 @@ int main(int argc, char *argv[]) {
 	std::string image_file1, image_file2;
 	while (df >> image_file1 >> image_file2) {
 		std::cout << "Processing images '" << image_file1 << "' and '" << image_file2 << "'." << std::endl;
+
 		cv::Mat image1 = loadImage(image_file1);
 		cv::Mat image2 = loadImage(image_file2);
 
 		bool visualize = params["visualize"].as<bool>(true);
-		DetectionResult detection_result = compareImages(image1, image2, params);
-		rf << detection_result.same_car << " " << detection_result.index_large << std::endl;
+		CompareResult compare_result = compareImages(image1, image2, params);
+		rf << compare_result.same_car << " " << compare_result.index_large << std::endl;
 	}
 
 	df.close();
