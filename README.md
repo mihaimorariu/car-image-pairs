@@ -1,4 +1,4 @@
-# Pairs #
+# Pairs Test Case #
 
 This repository contains my solution for the Pairs test case. Given two images, each showing a car, the program determined whether the same type/model is present in both of them. If so, it also provides information about which of the two images shows a large (zoomed-in) version of the car.
 
@@ -22,7 +22,7 @@ The result file (e.g. `result.txt`), containing the output of the program, conta
 1. Clone the repository. In the main directory, run `make`.
 2. Generate new (random) data. In the main directory, run:
 
-    `./src/generate_data.py img X data/data.txt data/gtruth.txt`
+    `./scripts/generate_data.py img X data/data.txt data/gtruth.txt`
 
     where `X` is the total number of generated tests, out of which half will contain images showing the same car and the other half will not.
 
@@ -35,7 +35,7 @@ The result file (e.g. `result.txt`), containing the output of the program, conta
 
 5. Evaluate the algorithm. In the main directory, run:
 
-    `./src/evaluate.py data/result.txt data/gtruth.txt`
+    `./scripts/evaluate.py data/result.txt data/gtruth.txt`
 
     The script will print :
 
@@ -44,4 +44,16 @@ The result file (e.g. `result.txt`), containing the output of the program, conta
 
 ### Limitations ###
 
+This implementation uses SIFT features and the Flann matcher to determine whether the same car is seen in both images. While hand-crafted features have proven successful in many applications, they are not guaranteed to be the optimal choice for the problem at hand. Moreover, they depend on parameters which should be learned from the data, but the current implementation only allows for tweaking such parameters manually.
+
+To determine the image which shows a large (zoomed-in) version of the car, the PCA algorithm is used. After obtaining point correspondences between the two images, the principal components and their eigenvalues are computed, for each of the two sets of points. Intuitively, the set of points from the image with the zoomed-in car should be more "spread out" than their correspondences in the other image, because the car is closer to the camera. We can use this intuition to check which image has the largest eigenvalue (i.e. the largest variation on a principal component) and mark that as being the one showing the zoomed-in version of the car. While this idea is easy to implement, it is sensitive to outliers.
+
 ### Future work ###
+
+To improve the performance of the algorithm, several ideas can be employed:
+
+* One could try to experiment with other popular descriptors (e.g. FAST, ORB, SURF, BRISK etc) and descriptor matchers, to see if better point correspondences are obtained that way. 
+
+* If more images are available per car type, then this problem could be treated as a multi-class classification problem and use a supervised learning algorithm to detect the correct car type for each image.
+
+* Deep Learning is a popular algorithm nowadays, which has proven successful in many applications. Siamese neural networks, in particular, have proven useful in finding similarities between images, so they could be a solution to this problem. The advantage is that features would automatically be learned from the data, however more data would be needed for this purpose.
