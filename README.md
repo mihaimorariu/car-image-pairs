@@ -1,6 +1,6 @@
 # Pairs #
 
-This repository contains my solution for the Pairs problem. Given two images, each showing a car, the program determines whether the same type/model is present in both of them. If so, it provides information about which of the two images shows a large (zoomed-in) version of the car.
+Given two images, each showing a car, the program determines whether the same type/model is present in both of them. If so, it provides information about which of the two images shows a large (zoomed-in) version of the car.
 
 The tests are provided in a txt (e.g. `data.txt`) file. Each line in this file contains the paths (relative to the directory containing the executable) of the two images that need to be processed (one test), separated by a space.
 
