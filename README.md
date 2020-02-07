@@ -1,4 +1,4 @@
-# Pairs #
+# Car Image Pairs #
 
 Given two images, each showing a car, the program determines whether the same type/model is present in both of them. If so, it provides information about which of the two images shows a large (zoomed-in) version of the car.
 
